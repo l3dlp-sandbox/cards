@@ -1988,4 +1988,40 @@ describe("getChildren", () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].children).toEqual([]);
 	});
+
+	test("fetches children from the original synced block", async () => {
+		const mockList = vi
+			.fn()
+			.mockResolvedValueOnce({
+				results: [
+					{
+						id: "synced-copy",
+						has_children: true,
+						type: "synced_block",
+						synced_block: {
+							synced_from: { type: "block_id", block_id: "synced-source" },
+						},
+					},
+				],
+				has_more: false,
+				next_cursor: null,
+			})
+			.mockResolvedValueOnce({
+				results: [{ id: "synced-child", has_children: false, type: "paragraph" }],
+				has_more: false,
+				next_cursor: null,
+			});
+
+		const mockNotion = {
+			blocks: { children: { list: mockList } },
+		};
+
+		const result = await getChildren(mockNotion, "root");
+		expect(result[0].children).toHaveLength(1);
+		expect(result[0].children[0].id).toBe("synced-child");
+		expect(mockList).toHaveBeenNthCalledWith(2, {
+			block_id: "synced-source",
+			start_cursor: undefined,
+		});
+	});
 });

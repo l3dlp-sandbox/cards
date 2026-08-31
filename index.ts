@@ -1315,7 +1315,11 @@ async function getChildren(notion: NotionClient, id: string) {
 	return Promise.all(
 		blocks.map(async (block) => {
 			if (block.has_children) {
-				block.children = await getChildren(notion, block.id);
+				const childrenBlockId =
+					block.type === "synced_block" && block.synced_block.synced_from?.type === "block_id"
+						? block.synced_block.synced_from.block_id
+						: block.id;
+				block.children = await getChildren(notion, childrenBlockId);
 			} else {
 				block.children = [];
 			}
