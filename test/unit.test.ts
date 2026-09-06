@@ -325,10 +325,38 @@ describe("textToHtml", () => {
 		expect(result).toContain("link text");
 	});
 
+	test("full app.notion.com page URL resolves to page link", async () => {
+		const result = await textToHtml(
+			"source-id",
+			richText("link text", {
+				link: {
+					url: "https://app.notion.com/p/Test-Page-cd2cb8c2dcc64da4bb025fa71513b780",
+				},
+			}),
+			pages,
+		);
+		expect(result).toContain('href="/test-page"');
+		expect(result).toContain("link text");
+	});
+
+	test("full notion.so page URL resolves to page link", async () => {
+		const result = await textToHtml(
+			"source-id",
+			richText("link text", {
+				link: {
+					url: "https://www.notion.so/Test-Page-cd2cb8c2dcc64da4bb025fa71513b780",
+				},
+			}),
+			pages,
+		);
+		expect(result).toContain('href="/test-page"');
+		expect(result).toContain("link text");
+	});
+
 	test("backlink with no matching page shows bracketed id", async () => {
 		const result = await textToHtml(
 			"source-id",
-			richText("x", { link: { url: "/123456789012345678901234567890123456" } }),
+			richText("x", { link: { url: "/12345678901234567890123456789012" } }),
 			pages,
 		);
 		expect(result).toBe("[12345678-9012-3456-7890-123456789012]");

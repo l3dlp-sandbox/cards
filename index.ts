@@ -566,12 +566,8 @@ async function textToHtml(
 
 		if (text.text.link) {
 			// Links to other pages (not mentions), should also get back-linked
-			if (/^\//.test(text.text.link.url)) {
-				const id = text.text.link.url.replace(/^\/(?:p\/)?/, "");
-				// Hack: format into "c3d85220-62aa-457a-b414-90c5e9929790"
-
-				const backlinkFriendlyId = addDashes(id);
-
+			const backlinkFriendlyId = notionPageIdFromUrl(text.text.link.url);
+			if (backlinkFriendlyId) {
 				registerBacklink(pageId, backlinkFriendlyId);
 				return linkOfId(allPages, backlinkFriendlyId, {
 					overwriteTitle: content,
@@ -622,6 +618,32 @@ async function textToHtml(
 	} else {
 		console.log(pageId, "Unrecognized text --", text);
 	}
+}
+
+function notionPageIdFromUrl(urlString: string) {
+	let pathname: string;
+	if (urlString.startsWith("/")) {
+		pathname = urlString;
+	} else {
+		try {
+			const url = new URL(urlString);
+			if (
+				url.hostname !== "notion.so" &&
+				!url.hostname.endsWith(".notion.so") &&
+				url.hostname !== "app.notion.com"
+			) {
+				return null;
+			}
+			pathname = url.pathname;
+		} catch {
+			return null;
+		}
+	}
+
+	const match = pathname.match(
+		/([0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i,
+	);
+	return match ? addDashes(match[1].replace(/-/g, "")) : null;
 }
 
 async function copyStaticAssets() {
