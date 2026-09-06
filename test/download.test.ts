@@ -141,7 +141,7 @@ describe("saveFavicon", () => {
 			type: "emoji",
 			emoji: "❤️",
 		});
-		expect(result).toBe("2764-fe0f.png");
+		expect(result).toBe("2764-fe0f.webp");
 	});
 
 	test("returns undefined for null icon", async () => {

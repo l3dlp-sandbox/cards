@@ -469,7 +469,7 @@ describe("textToHtml", () => {
 
 	test("emoji in text is replaced with img tag", async () => {
 		const result = await textToHtml("page-1", richText("hello ❤️ world"), pages);
-		expect(result).toBe('hello <img class="emoji" alt="❤️" src="2764-fe0f.png" /> world');
+		expect(result).toBe('hello <img class="emoji" alt="❤️" src="2764-fe0f.webp" /> world');
 	});
 
 	test("unrecognized mention type returns undefined", async () => {
@@ -507,7 +507,7 @@ describe("textToHtml", () => {
 				id: "cd2cb8c2-dcc6-4da4-bb02-5fa71513b780",
 				title: "Test Page",
 				filename: "test-page.html",
-				favicon: "2764-fe0f.png",
+				favicon: "2764-fe0f.webp",
 				blocks: [],
 			} as any,
 		];
@@ -679,32 +679,38 @@ describe("saveEmojiFavicon", () => {
 
 	test("returns basename for known emoji", async () => {
 		const result = await saveEmojiFavicon("❤️");
-		expect(result).toBe("2764-fe0f.png");
-		createdFiles.push("2764-fe0f.png");
+		expect(result).toBe("2764-fe0f.webp");
+		createdFiles.push("2764-fe0f.webp");
 	});
 
 	test("logs for emoji without datasource file", async () => {
 		const fs = await import("fs");
-		const dest = settings.output("2764.png");
+		const dest = settings.output("2764.webp");
 		if (!fs.existsSync(dest)) {
 			fs.writeFileSync(dest, "");
 		}
 		const result = await saveEmojiFavicon("❤");
-		expect(result).toBe("2764.png");
-		createdFiles.push("2764.png");
+		expect(result).toBe("2764.webp");
+		createdFiles.push("2764.webp");
 	});
 
-	test("copies emoji file when dest does not exist", async () => {
+	test("converts emoji file to a smaller WebP when dest does not exist", async () => {
 		const fs = await import("fs");
-		const dest = settings.output("2764-fe0f.png");
+		const dest = settings.output("2764-fe0f.webp");
+		const source = path.join(
+			__dirname,
+			"../node_modules/emoji-datasource-apple/img/apple/64/2764-fe0f.png",
+		);
 
 		const exists = fs.existsSync(dest);
 		if (exists) {
 			fs.unlinkSync(dest);
 		}
 		const result = await saveEmojiFavicon("❤️");
-		expect(result).toBe("2764-fe0f.png");
+		expect(result).toBe("2764-fe0f.webp");
 		expect(fs.existsSync(dest)).toBe(true);
+		expect((await sharp(dest).metadata()).format).toBe("webp");
+		expect(fs.statSync(dest).size).toBeLessThan(fs.statSync(source).size);
 	});
 });
 
@@ -715,7 +721,7 @@ describe("saveFavicon", () => {
 
 	test("saves emoji icon", async () => {
 		await expect(saveFavicon("page-id", { type: "emoji", emoji: "❤️" })).resolves.toBe(
-			"2764-fe0f.png",
+			"2764-fe0f.webp",
 		);
 	});
 
@@ -1747,6 +1753,7 @@ describe("savePage", () => {
 		expect(content).toContain('"prismCoy":"/prefix/prism-coy.css"');
 		expect(content).toContain('"prismTomorrow":"/prefix/prism-tomorrow.css"');
 		expect(content).not.toContain("katex.min.css");
+		expect(content).toContain('type="image/webp"');
 	});
 
 	test("includes katex stylesheet when content contains math", async () => {

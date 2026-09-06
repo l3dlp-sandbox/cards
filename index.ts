@@ -770,6 +770,7 @@ async function savePage(
 	const metaImage = ogImage ? settings.url(ogImage) : settings.ogImage;
 	const metaDescription = pageMetaDescription(title, content);
 	const twitterCard = ogImage ? "summary_large_image" : "summary";
+	const iconMimeType = mimeTypes.lookup(icon) || "image/png";
 	const katexStylesheet = (content || "").includes('class="katex')
 		? `<link rel="stylesheet" href="${settings.url("katex.min.css")}">`
 		: "";
@@ -788,7 +789,7 @@ async function savePage(
     <html lang="en">
     <head>
       <title>${title}</title>
-      <link rel="Shortcut Icon" type="image/x-icon" href="${settings.url(icon)}" />
+      <link rel="Shortcut Icon" type="${iconMimeType}" href="${settings.url(icon)}" />
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <meta name="color-scheme" content="light dark">
@@ -1413,18 +1414,19 @@ async function saveEmojiFavicon(emoji: string) {
 	const codepoints = emojiUnicode(emoji).split(" ").join("-");
 	const basename =
 		// TODO: unsure why we're looking for 31-, or why emoji-datasource has 0031-
-		codepoints === "31-fe0f-20e3" ? "0031-fe0f-20e3.png" : `${codepoints}.png`;
+		codepoints === "31-fe0f-20e3" ? "0031-fe0f-20e3.webp" : `${codepoints}.webp`;
+	const sourceBasename = basename.replace(/\.webp$/, ".png");
 	const filename = path.join(
 		__dirname,
 		"node_modules/emoji-datasource-apple/img/apple/64",
-		basename,
+		sourceBasename,
 	);
 	if (!fs.existsSync(filename)) {
 		console.log("Unknown emoji --", emoji, codepoints);
 	}
 	const dest = settings.output(basename);
 	if (!fs.existsSync(dest)) {
-		await fsPromises.copyFile(filename, dest);
+		await sharp(filename).webp({ quality: 82 }).toFile(dest);
 	}
 	return basename;
 }

@@ -78,9 +78,9 @@ const project = (val, valMin, valMax, desiredMin, desiredMax) =>
     <figure id="b0fdccf42">
         <img alt="" src="https://notes.jordanscales.com/0fdccf42-8e90-4d2a-8fd3-50409ec190d8.image.jpeg" fetchpriority="high" decoding="async">
         <figcaption></figcaption>
-      </figure><h2 id="details-img-class-emoji-alt-src-1f913-png-">
-      <a href="#details-img-class-emoji-alt-src-1f913-png-" class="link">🔗</a>
-      Details <img class="emoji" alt="🤓" src="1f913.png" />
+      </figure><h2 id="details-img-class-emoji-alt-src-1f913-webp-">
+      <a href="#details-img-class-emoji-alt-src-1f913-webp-" class="link">🔗</a>
+      Details <img class="emoji" alt="🤓" src="1f913.webp" />
     </h2><div class="text" id="b92acc1ba">
       The input <code>turing complete</code> hashes to the following:
       <div class="children"></div>
@@ -114,7 +114,7 @@ input   7a5a00937e</code></pre><div class="text" id="b5de63846">
       </div>
       
     </li></ol><div class="text" id="b14bd9df3">
-      Then we start writing <img class="emoji" alt="✍️" src="270d-fe0f.png" />. After each step, we draw the tape and the position of the cursor with a little ▼.
+      Then we start writing <img class="emoji" alt="✍️" src="270d-fe0f.webp" />. After each step, we draw the tape and the position of the cursor with a little ▼.
       <div class="children"></div>
     </div>"
 `;
