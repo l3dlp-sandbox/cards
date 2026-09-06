@@ -37,14 +37,15 @@ afterEach(async () => {
 });
 
 describe("createNotesServer", () => {
-	test("serves static files with cache headers, etags, redirects, and font aliases", async () => {
+	test("serves static files with cache headers, etags, redirects, and fonts", async () => {
 		tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "notes-server-static-"));
 		const outputDir = path.join(tmpRoot, "site");
 		fs.mkdirSync(path.join(outputDir, "blog"), { recursive: true });
+		fs.mkdirSync(path.join(outputDir, "fonts"), { recursive: true });
 		fs.writeFileSync(path.join(outputDir, "index.html"), "<h1>Home</h1>");
 		fs.writeFileSync(path.join(outputDir, "article.html"), "<h1>Article</h1>");
 		fs.writeFileSync(path.join(outputDir, "app.js"), "console.log('ok');");
-		fs.writeFileSync(path.join(outputDir, "font.woff2"), "font");
+		fs.writeFileSync(path.join(outputDir, "fonts", "font.woff2"), "font");
 
 		const baseUrl = await startServer({ outputDir });
 		const html = await fetch(`${baseUrl}/`);

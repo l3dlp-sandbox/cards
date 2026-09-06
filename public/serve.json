@@ -27,6 +27,5 @@
 				}
 			]
 		}
-	],
-	"rewrites": [{ "source": "/fonts/:name", "destination": "/:name" }]
+	]
 }

@@ -108,9 +108,6 @@ async function serveStatic(
 	outputDir: string,
 ) {
 	let pathname = decodeURIComponent(url.pathname);
-	if (pathname.startsWith("/fonts/")) {
-		pathname = pathname.replace(/^\/fonts/, "");
-	}
 	if (pathname.endsWith("/")) {
 		pathname += "index.html";
 	}

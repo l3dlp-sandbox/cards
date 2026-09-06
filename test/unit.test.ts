@@ -1690,6 +1690,9 @@ describe("copyStaticAssets", () => {
 		const path = await import("path");
 		const dest = settings.output("style.css");
 		expect(fs.existsSync(dest)).toBe(true);
+		expect(fs.existsSync(settings.output(path.join("fonts", "KaTeX_Main-Regular.woff2")))).toBe(
+			true,
+		);
 	});
 });
 

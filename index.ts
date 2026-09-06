@@ -648,26 +648,59 @@ function notionPageIdFromUrl(urlString: string) {
 
 async function copyStaticAssets() {
 	const assets = [
-		path.join(__dirname, "public/style.css"),
-		path.join(__dirname, "public/me.jpeg"),
-		path.join(__dirname, "public/serve.json"),
-		path.join(__dirname, "node_modules/prismjs/themes/prism-coy.css"),
-		path.join(__dirname, "node_modules/prismjs/themes/prism-tomorrow.css"),
-		path.join(__dirname, "node_modules/katex/dist/katex.min.css"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Math-Italic.woff2"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Main-Regular.woff2"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Size4-Regular.woff2"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Math-Italic.woff"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Main-Regular.woff"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Size4-Regular.woff"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Math-Italic.ttf"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Main-Regular.ttf"),
-		path.join(__dirname, "node_modules/katex/dist/fonts/KaTeX_Size4-Regular.ttf"),
-		path.join(__dirname, "node_modules/react/umd/react.production.min.js"),
-		path.join(__dirname, "node_modules/react-dom/umd/react-dom.production.min.js"),
+		{
+			source: path.join(__dirname, "public/style.css"),
+			destination: "style.css",
+		},
+		{
+			source: path.join(__dirname, "public/me.jpeg"),
+			destination: "me.jpeg",
+		},
+		{
+			source: path.join(__dirname, "public/serve.json"),
+			destination: "serve.json",
+		},
+		{
+			source: path.join(__dirname, "node_modules/prismjs/themes/prism-coy.css"),
+			destination: "prism-coy.css",
+		},
+		{
+			source: path.join(__dirname, "node_modules/prismjs/themes/prism-tomorrow.css"),
+			destination: "prism-tomorrow.css",
+		},
+		{
+			source: path.join(__dirname, "node_modules/katex/dist/katex.min.css"),
+			destination: "katex.min.css",
+		},
+		...[
+			"KaTeX_Math-Italic.woff2",
+			"KaTeX_Main-Regular.woff2",
+			"KaTeX_Size4-Regular.woff2",
+			"KaTeX_Math-Italic.woff",
+			"KaTeX_Main-Regular.woff",
+			"KaTeX_Size4-Regular.woff",
+			"KaTeX_Math-Italic.ttf",
+			"KaTeX_Main-Regular.ttf",
+			"KaTeX_Size4-Regular.ttf",
+		].map((filename) => ({
+			source: path.join(__dirname, "node_modules/katex/dist/fonts", filename),
+			destination: path.join("fonts", filename),
+		})),
+		{
+			source: path.join(__dirname, "node_modules/react/umd/react.production.min.js"),
+			destination: "react.production.min.js",
+		},
+		{
+			source: path.join(__dirname, "node_modules/react-dom/umd/react-dom.production.min.js"),
+			destination: "react-dom.production.min.js",
+		},
 	];
 	return Promise.all(
-		assets.map(async (asset) => fsPromises.copyFile(asset, settings.output(path.basename(asset)))),
+		assets.map(async ({ source, destination }) => {
+			const outputPath = settings.output(destination);
+			await fsPromises.mkdir(path.dirname(outputPath), { recursive: true });
+			await fsPromises.copyFile(source, outputPath);
+		}),
 	);
 }
 
