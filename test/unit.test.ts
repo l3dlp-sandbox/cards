@@ -315,6 +315,16 @@ describe("textToHtml", () => {
 		expect(result).toContain("link text");
 	});
 
+	test("backlink starting with /p/ resolves to page link", async () => {
+		const result = await textToHtml(
+			"source-id",
+			richText("link text", { link: { url: "/p/cd2cb8c2dcc64da4bb025fa71513b780" } }),
+			pages,
+		);
+		expect(result).toContain('href="/test-page"');
+		expect(result).toContain("link text");
+	});
+
 	test("backlink with no matching page shows bracketed id", async () => {
 		const result = await textToHtml(
 			"source-id",
@@ -909,6 +919,28 @@ describe("blockToHtml", () => {
 			pages,
 		);
 		expect(result).toContain("some plain code");
+	});
+
+	test("plain text code preserves links", async () => {
+		const result = await blockToHtml(
+			{
+				id: "aaa-bbb-ccc",
+				type: "code",
+				has_children: false,
+				code: {
+					caption: [],
+					language: "plain text",
+					text: [
+						richText("September "),
+						richText("6", { link: { url: "/p/cd2cb8c2dcc64da4bb025fa71513b780" } }),
+					],
+				},
+				children: [],
+			} as any,
+			"page-1",
+			pages,
+		);
+		expect(result).toContain('September <a href="/test-page">6</a>');
 	});
 
 	test("code with custom language via caption", async () => {

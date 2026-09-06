@@ -522,7 +522,12 @@ function longDate(str: string) {
 	}).format(date);
 }
 
-async function textToHtml(pageId: string, text: RichText, allPages: CardPage[]) {
+async function textToHtml(
+	pageId: string,
+	text: RichText,
+	allPages: CardPage[],
+	preserveWhitespace = false,
+) {
 	if (text.type === "text") {
 		const codeFriendly = text.text.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -562,7 +567,7 @@ async function textToHtml(pageId: string, text: RichText, allPages: CardPage[]) 
 		if (text.text.link) {
 			// Links to other pages (not mentions), should also get back-linked
 			if (/^\//.test(text.text.link.url)) {
-				const id = text.text.link.url.slice(1);
+				const id = text.text.link.url.replace(/^\/(?:p\/)?/, "");
 				// Hack: format into "c3d85220-62aa-457a-b414-90c5e9929790"
 
 				const backlinkFriendlyId = addDashes(id);
@@ -570,6 +575,7 @@ async function textToHtml(pageId: string, text: RichText, allPages: CardPage[]) 
 				registerBacklink(pageId, backlinkFriendlyId);
 				return linkOfId(allPages, backlinkFriendlyId, {
 					overwriteTitle: content,
+					compact: preserveWhitespace,
 				});
 			} else {
 				// rel="me" for mastodon
@@ -651,12 +657,19 @@ async function writeFileIfChanged(filename: string, content: string) {
 	await fsPromises.writeFile(filename, content);
 }
 
-const linkOfId = (allPages: CardPage[], id: string, args: { overwriteTitle?: string } = {}) => {
+const linkOfId = (
+	allPages: CardPage[],
+	id: string,
+	args: { overwriteTitle?: string; compact?: boolean } = {},
+) => {
 	const page = allPages.find((entry) => entry.id === id);
 	if (page) {
+		if (args.compact) {
+			return `<a href="${pageUrl(page.filename)}">${args.overwriteTitle}</a>`;
+		}
 		return `<a href="${pageUrl(page.filename)}"${page.favicon ? ` class="with-emoji"` : ""}>
       ${page.favicon ? `<img class="emoji" alt="" src="${settings.url(page.favicon)}">` : ""}
-      ${args.overwriteTitle || page.title}</a>`;
+	      ${args.overwriteTitle || page.title}</a>`;
 	} else {
 		return `[${id}]`;
 	}
@@ -965,8 +978,10 @@ async function blockToHtml(
 		(options.logger || console).log("[DEBUG]", block.type, block.id);
 	}
 
-	const textToHtml_ = async (texts: RichText[]) => {
-		const converts = await Promise.all(texts.map((text) => textToHtml(pageId, text, allPages)));
+	const textToHtml_ = async (texts: RichText[], preserveWhitespace = false) => {
+		const converts = await Promise.all(
+			texts.map((text) => textToHtml(pageId, text, allPages, preserveWhitespace)),
+		);
 		return converts.join("");
 	};
 	const blockId = "b" + block.id.replace(/-/g, "").slice(0, 8);
@@ -1057,9 +1072,12 @@ async function blockToHtml(
 		if (language !== "plain text" && !Prism.languages[language]) {
 			console.log(pageId, "Unrecognized language --", language);
 		}
-		const code = Prism.languages[language]
-			? Prism.highlight(concatenateText(block.code.text), Prism.languages[language], language)
-			: concatenateText(block.code.text);
+		const code =
+			language === "plain text"
+				? await textToHtml_(block.code.text, true)
+				: Prism.languages[language]
+					? Prism.highlight(concatenateText(block.code.text), Prism.languages[language], language)
+					: concatenateText(block.code.text);
 		const renderedCode = `<pre${caption ? "" : ` id="${blockId}"`}><code class="language-${language.replace(
 			/\s/g,
 			"-",
