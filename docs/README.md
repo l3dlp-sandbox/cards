@@ -1,6 +1,8 @@
-# Embed documentation
+# Notes site documentation
 
-This directory documents the custom interactive embeds supported by the notes site.
+## Embeds
+
+The notes site supports these custom interactive embeds:
 
 | Embed        | Notion source                                                           | Published output                                                        | Documentation                     |
 | ------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------- |
@@ -8,3 +10,7 @@ This directory documents the custom interactive embeds supported by the notes si
 | Shader/Stack | A Notion Embed block containing a Shader/Stack embed URL                | Cross-origin WebGL iframe followed by a native **View code** disclosure | [Shader/Stack](./shader-stack.md) |
 
 Both formats assume that the Notion database is trusted. Hashart executes authored JavaScript in the notes page itself; Shader/Stack isolates its compiler and renderer on `shaders.jordanscales.com`.
+
+## Performance
+
+[Performance audit](./performance.md) records the September 2026 Lighthouse baseline, the highest-impact findings, completed optimizations, and follow-up work.
