@@ -68,6 +68,7 @@ type CardPage = {
 };
 type PageIcon = { type: "file"; file: { url: string } } | { type: "emoji"; emoji: string } | null;
 type ImageDimensions = { width: number; height: number };
+type DecodedBmp = ImageDimensions & { data: Buffer };
 type ResponsiveImageVariants = {
 	avif: string;
 	webp: string;
@@ -893,8 +894,111 @@ async function downloadImage(url: string, filenamePrefix: string): Promise<strin
 	}
 }
 
+function bmpDimensions(file: Buffer): ImageDimensions | undefined {
+	if (
+		file.length < 54 ||
+		file[0] !== 0x42 ||
+		file[1] !== 0x4d ||
+		file.readUInt32LE(14) < 40 ||
+		file.readUInt16LE(26) !== 1
+	) {
+		return;
+	}
+
+	const width = file.readInt32LE(18);
+	const height = file.readInt32LE(22);
+	if (width <= 0 || height === 0) {
+		return;
+	}
+
+	return { width, height: Math.abs(height) };
+}
+
+function decodeBmp(file: Buffer): DecodedBmp {
+	const dimensions = bmpDimensions(file);
+	if (!dimensions) {
+		throw new Error("Invalid BMP header");
+	}
+
+	const dibSize = file.readUInt32LE(14);
+	const bitsPerPixel = file.readUInt16LE(28);
+	const compression = file.readUInt32LE(30);
+	const pixelOffset = file.readUInt32LE(10);
+	if (
+		![24, 32].includes(bitsPerPixel) ||
+		![0, 3].includes(compression) ||
+		(bitsPerPixel === 24 && compression === 3)
+	) {
+		throw new Error(`Unsupported BMP format: ${bitsPerPixel} bits, compression ${compression}`);
+	}
+
+	const rowSize = Math.ceil((bitsPerPixel * dimensions.width) / 32) * 4;
+	if (pixelOffset + rowSize * dimensions.height > file.length) {
+		throw new Error("Truncated BMP pixel data");
+	}
+
+	let redMask = 0;
+	let greenMask = 0;
+	let blueMask = 0;
+	let alphaMask = 0;
+	if (compression === 3) {
+		const maskOffset = 14 + dibSize;
+		if (maskOffset + 12 > file.length) {
+			throw new Error("Truncated BMP color masks");
+		}
+		redMask = file.readUInt32LE(maskOffset);
+		greenMask = file.readUInt32LE(maskOffset + 4);
+		blueMask = file.readUInt32LE(maskOffset + 8);
+		if (maskOffset + 16 <= file.length) {
+			alphaMask = file.readUInt32LE(maskOffset + 12);
+		}
+	}
+
+	const channelFromMask = (pixel: number, mask: number) => {
+		if (!mask) return 0;
+		let shift = 0;
+		while (((mask >>> shift) & 1) === 0) shift++;
+		const value = (pixel & mask) >>> shift;
+		const max = mask >>> shift;
+		return Math.round((value * 255) / max);
+	};
+	const data = Buffer.alloc(dimensions.width * dimensions.height * 4);
+	const sourceHeight = file.readInt32LE(22);
+	for (let y = 0; y < dimensions.height; y++) {
+		const sourceY = sourceHeight > 0 ? dimensions.height - y - 1 : y;
+		for (let x = 0; x < dimensions.width; x++) {
+			const sourceOffset = pixelOffset + sourceY * rowSize + x * (bitsPerPixel / 8);
+			const destinationOffset = (y * dimensions.width + x) * 4;
+			if (bitsPerPixel === 24) {
+				data[destinationOffset] = file[sourceOffset + 2];
+				data[destinationOffset + 1] = file[sourceOffset + 1];
+				data[destinationOffset + 2] = file[sourceOffset];
+				data[destinationOffset + 3] = 255;
+			} else if (compression === 3) {
+				const pixel = file.readUInt32LE(sourceOffset);
+				data[destinationOffset] = channelFromMask(pixel, redMask);
+				data[destinationOffset + 1] = channelFromMask(pixel, greenMask);
+				data[destinationOffset + 2] = channelFromMask(pixel, blueMask);
+				data[destinationOffset + 3] = alphaMask ? channelFromMask(pixel, alphaMask) : 255;
+			} else {
+				data[destinationOffset] = file[sourceOffset + 2];
+				data[destinationOffset + 1] = file[sourceOffset + 1];
+				data[destinationOffset + 2] = file[sourceOffset];
+				// BI_RGB files commonly leave the alpha byte unset; treat it as opaque.
+				data[destinationOffset + 3] = file[sourceOffset + 3] || 255;
+			}
+		}
+	}
+
+	return { ...dimensions, data };
+}
+
 async function getImageDimensions(filename: string): Promise<ImageDimensions | undefined> {
 	const file = await fsPromises.readFile(settings.output(filename));
+	const dimensions = bmpDimensions(file);
+	if (dimensions) {
+		return dimensions;
+	}
 
 	if (file.length >= 24 && file.toString("ascii", 1, 4) === "PNG") {
 		return {
@@ -948,7 +1052,17 @@ async function optimizeImageVariant(filename: string, width: number, format: "av
 	const optimizedPath = settings.output(optimizedFilename);
 
 	if (!fs.existsSync(optimizedPath)) {
-		let pipeline = sharp(settings.output(filename)).resize({ width, withoutEnlargement: true });
+		const extension = path.extname(filename).toLowerCase();
+		const pipelineInput =
+			extension === ".bmp"
+				? await fsPromises.readFile(settings.output(filename)).then((file) => {
+						const bmp = decodeBmp(file);
+						return sharp(bmp.data, {
+							raw: { width: bmp.width, height: bmp.height, channels: 4 },
+						});
+					})
+				: sharp(settings.output(filename));
+		let pipeline = pipelineInput.resize({ width, withoutEnlargement: true });
 		pipeline = format === "avif" ? pipeline.avif({ quality: 55 }) : pipeline.webp({ quality: 85 });
 		await pipeline.toFile(optimizedPath);
 	}
@@ -1008,15 +1122,20 @@ async function downloadImageBlock(
 	const sizeAttributes = dimensions
 		? ` width="${dimensions.width}" height="${dimensions.height}"`
 		: "";
+	let fallbackFilename = filename;
 	if (dimensions) {
-		sources = renderImageSources(await responsiveImageVariants(filename, dimensions));
+		const variants = await responsiveImageVariants(filename, dimensions);
+		sources = renderImageSources(variants);
+		if (path.extname(filename).toLowerCase() === ".bmp" && variants.length) {
+			fallbackFilename = variants[variants.length - 1].webp;
+		}
 	}
 	const loadingAttributes = isEagerImage
 		? 'fetchpriority="high" decoding="async"'
 		: 'loading="lazy" decoding="async"';
 	const html = `<figure id="${blockId}">
       <picture>
-        ${sources}<img alt="${caption}" src="${settings.url(filename)}" ${loadingAttributes}${sizeAttributes}>
+        ${sources}<img alt="${caption}" src="${settings.url(fallbackFilename)}" ${loadingAttributes}${sizeAttributes}>
       </picture>
       <figcaption>${caption}</figcaption>
     </figure>`;

@@ -1581,6 +1581,57 @@ test("image/file block renders responsive optimized sources", async () => {
 	}
 });
 
+function makeBmp(width: number, height: number) {
+	const rowSize = Math.ceil((width * 3) / 4) * 4;
+	const file = Buffer.alloc(54 + rowSize * height);
+	file.write("BM", 0, "ascii");
+	file.writeUInt32LE(file.length, 2);
+	file.writeUInt32LE(54, 10);
+	file.writeUInt32LE(40, 14);
+	file.writeInt32LE(width, 18);
+	file.writeInt32LE(height, 22);
+	file.writeUInt16LE(1, 26);
+	file.writeUInt16LE(24, 28);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const offset = 54 + y * rowSize + x * 3;
+			file[offset] = 255;
+			file[offset + 1] = x % 256;
+			file[offset + 2] = y % 256;
+		}
+	}
+	return file;
+}
+
+test("image/file block converts BMP sources to responsive browser formats", async () => {
+	const block = {
+		id: "test-bmp-image",
+		type: "image",
+		image: {
+			type: "file",
+			file: { url: "https://example.com/img.bmp", expiry_time: "" },
+			caption: [{ type: "text", text: { content: "BMP" }, plain_text: "BMP" }],
+		},
+		children: [],
+		has_children: false,
+	};
+	const filename = "test-bmp-image.image.bmp";
+
+	try {
+		fs.writeFileSync(settings.output(filename), makeBmp(1000, 500));
+		const result = await blockToHtml(block as any, "page-1", pages);
+		expect(result).toContain('type="image/avif"');
+		expect(result).toContain('type="image/webp"');
+		expect(result).toContain("test-bmp-image.image.w460.avif 460w");
+		expect(result).toContain('src="/test-bmp-image.image.w1000.webp"');
+		expect(result).toContain('width="1000" height="500"');
+	} finally {
+		for (const f of fs.readdirSync(settings.outputDir)) {
+			if (f.startsWith("test-bmp-image.image.")) fs.unlinkSync(settings.output(f));
+		}
+	}
+});
+
 const lcpImageBlock = (id: string) => ({
 	id,
 	type: "image",
